@@ -2,12 +2,21 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
-	// Uncomment this block to pass the first stage
-	// "net"
-	// "os"
 )
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	fmt.Println("Handling connection from ", conn.RemoteAddr())
+
+	_, err := conn.Write([]byte("Hello World!"))
+
+	if err != nil {
+		return
+	}
+}
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -22,8 +31,21 @@ func main() {
 	}
 
 	_, err = l.Accept()
+
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
+
 	}
+
+	for {
+		conn, err := l.Accept()
+
+		if err != nil {
+			log.Fatalln("Error accepting connection: ", err.Error())
+		}
+
+		go handleConnection(conn)
+	}
+
 }
