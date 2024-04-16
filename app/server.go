@@ -16,7 +16,6 @@ type Request struct {
 
 var request = &Request{}
 var successResponse = "HTTP/1.1 200 OK\r\n\r\n"
-var notFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n"
 var contentType = "Content-Type: text/plain \r\n\r\n"
 
 func main() {
@@ -53,12 +52,6 @@ func handleConnection(conn net.Conn) {
 	request.method = startLineSlice[0]
 	request.path = startLineSlice[1]
 	request.protocol = startLineSlice[2]
-
-	if request.path == "/not-found" {
-		conn.Write([]byte(notFoundResponse))
-		fmt.Printf("404 Not Found: %s\n", request.path)
-		return
-	}
 
 	fmt.Printf("Request: %s %s %s\n", request.method, request.path, request.protocol)
 
