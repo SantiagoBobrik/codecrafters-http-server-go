@@ -15,9 +15,9 @@ type Request struct {
 }
 
 var request = &Request{}
-
 var successResponse = "HTTP/1.1 200 OK\r\n\r\n"
 var notFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n"
+var contentType = "Content-Type: text/plain \r\n\r\n"
 
 func main() {
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
@@ -37,9 +37,6 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-
-	fmt.Println("Accepted connection")
-
 	defer conn.Close()
 
 	buf := make([]byte, 1024)
@@ -57,10 +54,18 @@ func handleConnection(conn net.Conn) {
 	request.path = startLineSlice[1]
 	request.protocol = startLineSlice[2]
 
-	if request.path != "/" {
+	if request.path == "/" {
 		conn.Write([]byte(notFoundResponse))
+		fmt.Printf("404 Not Found: %s\n", request.path)
 		return
 	}
 
-	conn.Write([]byte(successResponse))
+	fmt.Printf("Request: %s %s %s\n", request.method, request.path, request.protocol)
+
+	params := strings.Split(request.path, "/")
+
+	content := params[len(params)-1] + "\r\n\r\n"
+
+	conn.Write([]byte(successResponse + contentType + content))
+
 }
