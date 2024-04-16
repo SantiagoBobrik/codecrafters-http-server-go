@@ -54,7 +54,7 @@ func handleConnection(conn net.Conn) {
 	request.path = startLineSlice[1]
 	request.protocol = startLineSlice[2]
 
-	if request.path == "/" {
+	if request.path == "/not-found" {
 		conn.Write([]byte(notFoundResponse))
 		fmt.Printf("404 Not Found: %s\n", request.path)
 		return
