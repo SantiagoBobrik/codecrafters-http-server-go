@@ -57,7 +57,7 @@ func handleConnection(conn net.Conn) {
 	params := strings.Split(request.path, "/")
 	content := params[len(params)-1] + "\r\n\r\n"
 
-	if params[0] != "echo" {
+	if params[1] != "echo" {
 		conn.Write([]byte(notFoundResponse))
 		fmt.Printf("404 Not Found: %s\n", request.path)
 		return
