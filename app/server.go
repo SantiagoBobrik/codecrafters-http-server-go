@@ -38,6 +38,11 @@ func handleConnection(conn net.Conn) {
 
 	fmt.Printf("Request: %s %s %s\n", request.method, request.path, request.protocol)
 
+	handleRoute("/", request, func(r *Request) {
+		ok = true
+		conn.Write([]byte(successResponse))
+	})
+
 	handleRoute("/echo", request, func(r *Request) {
 		ok = true
 		paths := strings.Split(request.path, "/")
