@@ -16,6 +16,7 @@ type Request struct {
 
 var successResponse = "HTTP/1.1 200 OK\r\n\r\n"
 var notFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n"
+var serverErrorResponse = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
 var contentType = "Content-Type: text/plain \r\n\r\n"
 
 func newRequest(method string, path string, protocol string) *Request {
@@ -28,29 +29,22 @@ func handleConnection(conn net.Conn) {
 	_, err := conn.Read(buf)
 
 	if err != nil {
+		handleServerError(conn)
 		log.Fatal("Failed to read data")
 	}
 
 	reqStringSlice := strings.Split(string(buf), "\r\n")
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2])
-	ok := false
 
 	fmt.Printf("Request: %s %s %s\n", request.method, request.path, request.protocol)
 
-	handleRoute("/", request, func(r *Request) {
-		ok = true
+	switch {
+	case request.path == "/":
 		conn.Write([]byte(successResponse))
-	})
-
-	handleRoute("/echo", request, func(r *Request) {
-		ok = true
-		paths := strings.Split(request.path, "/")
-		lastPath := paths[len(paths)-1]
-		conn.Write([]byte(successResponse + contentType + lastPath))
-	})
-
-	if !ok {
+	case strings.HasPrefix(request.path, "/echo"):
+		handleEcho(conn, request)
+	default:
 		conn.Write([]byte(notFoundResponse))
 	}
 
@@ -73,11 +67,15 @@ func main() {
 	}
 }
 
-func handleRoute(path string, request *Request, handler func(r *Request)) {
-	hasPrefix := strings.HasPrefix(request.path, path)
-
-	if hasPrefix {
-		handler(request)
+func handleEcho(conn net.Conn, request *Request) {
+	paths := strings.Split(request.path, "/")
+	lastPath := paths[len(paths)-1]
+	_, err := conn.Write([]byte(successResponse + contentType + lastPath))
+	if err != nil {
+		handleServerError(conn)
 	}
+}
 
+func handleServerError(conn net.Conn) {
+	conn.Write([]byte(serverErrorResponse))
 }
