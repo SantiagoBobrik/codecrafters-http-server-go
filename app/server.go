@@ -15,11 +15,14 @@ type Request struct {
 	protocol string
 }
 
-var successResponse = "HTTP/1.1 200 OK\r\n\r\n"
-var notFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n"
-var serverErrorResponse = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
-var contentType = "Content-Type: text/plain \r\n\r\n"
-var contentLength = "Content-Length: 0\r\n\r\n"
+const (
+	CRLF           = "\r\n"
+	OK             = "HTTP/1.1 200 OK"
+	NOT_FOUND      = "HTTP/1.1 404 Not Found"
+	INTERNAL_ERROR = "HTTP/1.1 500 Internal Server Error"
+	CONTENT_TYPE   = "Content-Type: text/plain"
+	CONTENT_LENGTH = "Content-Length: 0"
+)
 
 func newRequest(method string, path string, protocol string) *Request {
 	return &Request{method, path, protocol}
@@ -43,11 +46,11 @@ func handleConnection(conn net.Conn) {
 
 	switch {
 	case request.path == "/":
-		conn.Write([]byte(successResponse))
+		conn.Write([]byte(OK + CRLF + CRLF))
 	case strings.HasPrefix(request.path, "/echo"):
 		handleEcho(conn, request)
 	default:
-		conn.Write([]byte(notFoundResponse))
+		conn.Write([]byte(NOT_FOUND))
 	}
 
 }
@@ -76,8 +79,8 @@ func handleEcho(conn net.Conn, request *Request) {
 		fmt.Println("Failed to parse request")
 		handleServerError(conn)
 	}
+	response := OK + CRLF + CONTENT_TYPE + CRLF + getContentLen(body) + CRLF + CRLF + body
 
-	response := successResponse + contentType + getContentLen(body) + body
 	_, err := conn.Write([]byte(response))
 
 	if err != nil {
@@ -86,9 +89,9 @@ func handleEcho(conn net.Conn, request *Request) {
 }
 
 func handleServerError(conn net.Conn) {
-	conn.Write([]byte(serverErrorResponse))
+	conn.Write([]byte(INTERNAL_ERROR))
 }
 
 func getContentLen(s string) string {
-	return strings.Replace(contentLength, "0", strconv.Itoa(len(s)), 1)
+	return strings.Replace(CONTENT_LENGTH, "0", strconv.Itoa(len(s)), 1)
 }
