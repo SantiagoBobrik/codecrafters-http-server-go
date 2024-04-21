@@ -16,12 +16,12 @@ type Request struct {
 }
 
 const (
-	CRLF           = "\r\n"
-	OK             = "HTTP/1.1 200 OK"
-	NOT_FOUND      = "HTTP/1.1 404 Not Found"
-	INTERNAL_ERROR = "HTTP/1.1 500 Internal Server Error"
-	CONTENT_TYPE   = "Content-Type: text/plain"
-	CONTENT_LENGTH = "Content-Length: 0"
+	CRLF          = "\r\n"
+	OK            = "HTTP/1.1 200 OK"
+	NotFound      = "HTTP/1.1 404 Not Found"
+	InternalError = "HTTP/1.1 500 Internal Server Error"
+	ContentType   = "Content-Type: text/plain"
+	ContentLength = "Content-Length: 0"
 )
 
 func newRequest(method string, path string, protocol string) *Request {
@@ -50,7 +50,7 @@ func handleConnection(conn net.Conn) {
 	case strings.HasPrefix(request.path, "/echo"):
 		handleEcho(conn, request)
 	default:
-		conn.Write([]byte(NOT_FOUND))
+		conn.Write([]byte(NotFound + CRLF + CRLF))
 	}
 
 }
@@ -79,7 +79,7 @@ func handleEcho(conn net.Conn, request *Request) {
 		fmt.Println("Failed to parse request")
 		handleServerError(conn)
 	}
-	response := OK + CRLF + CONTENT_TYPE + CRLF + getContentLen(body) + CRLF + CRLF + body
+	response := OK + CRLF + ContentType + CRLF + getContentLen(body) + CRLF + CRLF + body
 
 	_, err := conn.Write([]byte(response))
 
@@ -89,9 +89,9 @@ func handleEcho(conn net.Conn, request *Request) {
 }
 
 func handleServerError(conn net.Conn) {
-	conn.Write([]byte(INTERNAL_ERROR))
+	conn.Write([]byte(InternalError + CRLF + CRLF))
 }
 
 func getContentLen(s string) string {
-	return strings.Replace(CONTENT_LENGTH, "0", strconv.Itoa(len(s)), 1)
+	return strings.Replace(ContentLength, "0", strconv.Itoa(len(s)), 1)
 }
