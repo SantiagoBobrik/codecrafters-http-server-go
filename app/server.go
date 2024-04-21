@@ -70,10 +70,16 @@ func main() {
 }
 
 func handleEcho(conn net.Conn, request *Request) {
-	paths := strings.Split(request.path, "/")
-	lastPath := paths[len(paths)-1]
+	body, found := strings.CutPrefix(request.path, "/echo/")
 
-	_, err := conn.Write([]byte(successResponse + contentType + getContentLen(lastPath) + lastPath))
+	if !found {
+		fmt.Println("Failed to parse request")
+		handleServerError(conn)
+	}
+
+	response := successResponse + contentType + getContentLen(body) + body
+	_, err := conn.Write([]byte(response))
+
 	if err != nil {
 		handleServerError(conn)
 	}
