@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -18,6 +19,7 @@ var successResponse = "HTTP/1.1 200 OK\r\n\r\n"
 var notFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n"
 var serverErrorResponse = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
 var contentType = "Content-Type: text/plain \r\n\r\n"
+var contentLength = "Content-Length: 0\r\n\r\n"
 
 func newRequest(method string, path string, protocol string) *Request {
 	return &Request{method, path, protocol}
@@ -70,7 +72,8 @@ func main() {
 func handleEcho(conn net.Conn, request *Request) {
 	paths := strings.Split(request.path, "/")
 	lastPath := paths[len(paths)-1]
-	_, err := conn.Write([]byte(successResponse + contentType + lastPath))
+
+	_, err := conn.Write([]byte(successResponse + contentType + getContentLen(lastPath) + lastPath))
 	if err != nil {
 		handleServerError(conn)
 	}
@@ -78,4 +81,8 @@ func handleEcho(conn net.Conn, request *Request) {
 
 func handleServerError(conn net.Conn) {
 	conn.Write([]byte(serverErrorResponse))
+}
+
+func getContentLen(s string) string {
+	return strings.Replace(contentLength, "0", strconv.Itoa(len(s)), 1)
 }
