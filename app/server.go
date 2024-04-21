@@ -10,9 +10,11 @@ import (
 )
 
 type Request struct {
-	method   string
-	path     string
-	protocol string
+	Method    string
+	Path      string
+	Protocol  string
+	Host      string
+	UserAgent string
 }
 
 const (
@@ -22,10 +24,18 @@ const (
 	InternalError = "HTTP/1.1 500 Internal Server Error"
 	ContentType   = "Content-Type: text/plain"
 	ContentLength = "Content-Length: 0"
+	UserAgent     = "User-Agent: 0"
 )
 
-func newRequest(method string, path string, protocol string) *Request {
-	return &Request{method, path, protocol}
+func newRequest(s []string) *Request {
+	return &Request{
+		Method:    s[0],
+		Path:      s[1],
+		Protocol:  s[2],
+		Host:      s[3],
+		UserAgent: s[4],
+	}
+
 }
 
 func handleConnection(conn net.Conn) {
@@ -40,15 +50,17 @@ func handleConnection(conn net.Conn) {
 
 	reqStringSlice := strings.Split(string(buf), "\r\n")
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
-	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2])
+	request := newRequest(startLineSlice)
 
-	fmt.Printf("Request: %s %s %s\n", request.method, request.path, request.protocol)
+	fmt.Printf("Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
-	case request.path == "/":
+	case request.Path == "/":
 		conn.Write([]byte(OK + CRLF + CRLF))
-	case strings.HasPrefix(request.path, "/echo"):
+	case strings.HasPrefix(request.Path, "/echo"):
 		handleEcho(conn, request)
+	case request.Path == "/user-agent":
+		handleUserAgent(conn, request)
 	default:
 		conn.Write([]byte(NotFound + CRLF + CRLF))
 	}
@@ -56,7 +68,7 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
-	listener, err := net.Listen("tcp", "0.0.0.0:4221")
+	listener, err := net.Listen("tcp", "lohalhost:4221")
 
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -73,7 +85,7 @@ func main() {
 }
 
 func handleEcho(conn net.Conn, request *Request) {
-	body, found := strings.CutPrefix(request.path, "/echo/")
+	body, found := strings.CutPrefix(request.Path, "/echo/")
 
 	if !found {
 		fmt.Println("Failed to parse request")
@@ -92,6 +104,10 @@ func handleServerError(conn net.Conn) {
 	conn.Write([]byte(InternalError + CRLF + CRLF))
 }
 
+func handleUserAgent(conn net.Conn, request *Request) {
+	conn.Write([]byte(request.UserAgent))
+
+}
 func getContentLen(s string) string {
 	return strings.Replace(ContentLength, "0", strconv.Itoa(len(s)), 1)
 }
