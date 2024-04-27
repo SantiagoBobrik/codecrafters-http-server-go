@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -47,6 +48,7 @@ func handleConnection(conn net.Conn) {
 		log.Printf("Error reading: %v", err)
 		os.Exit(1)
 	}
+	buf = bytes.Trim(buf, "\x00")
 	reqString := string(buf[:n])
 	reqStringSlice := strings.Split(reqString, CRLF)
 	if len(reqStringSlice) < 3 {
@@ -61,7 +63,6 @@ func handleConnection(conn net.Conn) {
 	}
 	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
 	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
-
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
