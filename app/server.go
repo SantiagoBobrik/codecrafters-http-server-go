@@ -61,14 +61,19 @@ func handleConnection(conn net.Conn) {
 
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	if len(startLineSlice) < 3 {
+		log.Println("Invalid start line in request")
 		sendResponse(conn, BadRequest, "")
 		return
 	}
 
 	headers := parseHeaders(reqStringSlice[1:])
+
+	fmt.Print(headers)
 	host := headers["host"]
 	userAgent := headers["user-agent"]
+
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
+
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
