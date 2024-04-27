@@ -70,12 +70,16 @@ func handleConnection(conn net.Conn) {
 	switch {
 	case request.Path == "/":
 		response = OK + CRLF + ContentLength + CRLF + CRLF
+		break
 	case strings.HasPrefix(request.Path, "/echo"):
 		handleEcho(conn, request)
+		break
 	case request.Path == "/user-agent":
 		handleUserAgent(conn, request)
+		break
 	default:
 		response = NotFound + CRLF + CRLF
+		break
 	}
 
 	_, err = conn.Write([]byte(response))
