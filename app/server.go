@@ -66,10 +66,12 @@ func handleConnection(conn net.Conn) {
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
-	response := ""
 	switch {
 	case request.Path == "/":
-		response = OK + CRLF + ContentLength + CRLF + CRLF
+		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		if err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 		break
 	case strings.HasPrefix(request.Path, "/echo"):
 		handleEcho(conn, request)
@@ -78,14 +80,13 @@ func handleConnection(conn net.Conn) {
 		handleUserAgent(conn, request)
 		break
 	default:
-		response = NotFound + CRLF + CRLF
+		_, err = conn.Write([]byte(NotFound + CRLF + CRLF))
+		if err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 		break
 	}
 
-	_, err = conn.Write([]byte(response))
-	if err != nil {
-		log.Printf("Failed to write response: %v", err)
-	}
 }
 
 func main() {
