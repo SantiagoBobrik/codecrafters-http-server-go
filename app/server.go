@@ -54,7 +54,7 @@ func handleConnection(conn net.Conn) {
 	userAgent := strings.Trim(strings.Split(reqStringSlice[2], ":")[1], " ")
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 
-	fmt.Printf("Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
+	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
 	case request.Path == "/":
