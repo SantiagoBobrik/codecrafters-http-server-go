@@ -48,6 +48,7 @@ func handleConnection(conn net.Conn) {
 		log.Fatal("Failed to read data")
 	}
 
+	// TODO Add validations
 	reqStringSlice := strings.Split(string(buf), "\r\n")
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	host := strings.Split(reqStringSlice[1], ":")[1]
