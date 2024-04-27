@@ -42,29 +42,33 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	n, err := conn.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %v", err)
 		os.Exit(1)
 	}
+
 	buf = bytes.Trim(buf, "\x00")
+
 	reqString := string(buf[:n])
 	reqStringSlice := strings.Split(reqString, CRLF)
 	if len(reqStringSlice) < 3 {
 		log.Println("Invalid requestt")
+		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
 		return
 	}
 
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	if len(startLineSlice) < 3 {
 		log.Println("Invalid start line in request")
+		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
 		return
 	}
+
 	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
 	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
-	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
 	case request.Path == "/":
