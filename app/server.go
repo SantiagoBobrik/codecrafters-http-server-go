@@ -23,6 +23,7 @@ const (
 	CRLF          = "\r\n"
 	OK            = "HTTP/1.1 200 OK"
 	NotFound      = "HTTP/1.1 404 Not Found"
+	BadRequest    = "HTTP/1.1 400 Bad Request"
 	InternalError = "HTTP/1.1 500 Internal Server Error"
 	ContentType   = "Content-Type: text/plain"
 	ContentLength = "Content-Length: 0"
@@ -54,21 +55,21 @@ func handleConnection(conn net.Conn) {
 	reqString := string(buf[:n])
 	reqStringSlice := strings.Split(reqString, CRLF)
 	if len(reqStringSlice) < 3 {
-		log.Println("Invalid requestt")
-		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
+		sendResponse(conn, BadRequest, "")
 		return
 	}
 
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	if len(startLineSlice) < 3 {
-		log.Println("Invalid start line in request")
-		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
+		sendResponse(conn, BadRequest, "")
 		return
 	}
 
-	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
-	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
+	headers := parseHeaders(reqStringSlice[1:])
+	host := headers["host"]
+	userAgent := headers["user-agent"]
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
+	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
 	case request.Path == "/":
@@ -81,6 +82,19 @@ func handleConnection(conn net.Conn) {
 		sendResponse(conn, NotFound, "")
 	}
 
+}
+func parseHeaders(lines []string) map[string]string {
+	headers := make(map[string]string)
+	for _, line := range lines {
+		if line == "" {
+			break
+		}
+		parts := strings.SplitN(line, ": ", 2)
+		if len(parts) == 2 {
+			headers[strings.ToLower(parts[0])] = parts[1]
+		}
+	}
+	return headers
 }
 
 func main() {
