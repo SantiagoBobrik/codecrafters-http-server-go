@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -42,53 +41,69 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096) // Aumento del tamaño del buffer para acomodar solicitudes más grandes.
 	n, err := conn.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %v", err)
-		os.Exit(1)
-	}
-	buf = bytes.Trim(buf, "\x00")
-	reqString := string(buf[:n])
-	reqStringSlice := strings.Split(reqString, CRLF)
-	if len(reqStringSlice) < 3 {
-		log.Println("Invalid request")
+		sendResponse(conn, InternalError, "")
 		return
 	}
 
-	startLineSlice := strings.Split(reqStringSlice[0], " ")
-	if len(startLineSlice) != 3 {
-		log.Println("Invalid start line in request")
+	reqString := string(buf[:n])
+	reqLines := strings.Split(reqString, CRLF)
+
+	if len(reqLines) < 3 {
+		log.Println("Invalid request format")
+		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
 		return
 	}
-	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
-	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
-	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
-	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
+
+	// Extracción de la línea de inicio y cabeceras
+	startLine := strings.Split(reqLines[0], " ")
+	if len(startLine) < 3 {
+		log.Println("Invalid start line in request")
+		sendResponse(conn, "HTTP/1.1 400 Bad Request", "")
+		return
+	}
+
+	headers := parseHeaders(reqLines[1:])
+	host := headers["host"]
+	userAgent := headers["user-agent"]
+	request := newRequest(startLine[0], startLine[1], startLine[2], host, userAgent)
 
 	switch {
 	case request.Path == "/":
-		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-		if err != nil {
-			log.Printf("Failed to write response: %v", err)
-		}
-		break
+		sendResponse(conn, OK, "")
 	case strings.HasPrefix(request.Path, "/echo"):
 		handleEcho(conn, request)
-		break
 	case request.Path == "/user-agent":
 		handleUserAgent(conn, request)
-		break
 	default:
-		_, err = conn.Write([]byte(NotFound + CRLF + CRLF))
-		if err != nil {
-			log.Printf("Failed to write response: %v", err)
-		}
-		break
+		sendResponse(conn, NotFound, "")
 	}
-
 }
 
+func sendResponse(conn net.Conn, status string, body string) {
+	response := fmt.Sprintf("%s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", status, len(body), body)
+	_, err := conn.Write([]byte(response))
+	if err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
+}
+
+func parseHeaders(lines []string) map[string]string {
+	headers := make(map[string]string)
+	for _, line := range lines {
+		if line == "" {
+			break
+		}
+		parts := strings.SplitN(line, ": ", 2)
+		if len(parts) == 2 {
+			headers[strings.ToLower(parts[0])] = parts[1]
+		}
+	}
+	return headers
+}
 func main() {
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
 
