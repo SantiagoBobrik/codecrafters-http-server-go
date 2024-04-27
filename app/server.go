@@ -40,34 +40,47 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
-	_, err := conn.Read(buf)
-
+	buf := make([]byte, 4096) // Incrementar tamaño si es necesario
+	n, err := conn.Read(buf)
 	if err != nil {
-		handleServerError(conn)
-		log.Fatal("Failed to read data")
+		log.Printf("Error reading: %v", err)
+		return // Maneja el error sin terminar el programa
 	}
 
-	// TODO Add validation
-	reqStringSlice := strings.Split(string(buf), "\r\n")
-	startLineSlice := strings.Split(reqStringSlice[0], " ")
-	host := strings.Split(reqStringSlice[1], ":")[1]
-	userAgent := strings.Trim(strings.Split(reqStringSlice[2], ":")[1], " ")
-	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
+	reqString := string(buf[:n])
+	reqStringSlice := strings.Split(reqString, CRLF)
+	if len(reqStringSlice) < 3 {
+		log.Println("Invalid request")
+		return
+	}
 
+	startLineSlice := strings.Split(reqStringSlice[0], " ")
+	if len(startLineSlice) != 3 {
+		log.Println("Invalid start line in request")
+		return
+	}
+	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
+	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
+
+	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
+	response := ""
 	switch {
 	case request.Path == "/":
-		conn.Write([]byte(OK + CRLF + CRLF + CRLF))
+		response = OK + CRLF + ContentLength + CRLF + CRLF
 	case strings.HasPrefix(request.Path, "/echo"):
 		handleEcho(conn, request)
 	case request.Path == "/user-agent":
 		handleUserAgent(conn, request)
 	default:
-		conn.Write([]byte(NotFound + CRLF + CRLF))
+		response = NotFound + CRLF + CRLF
 	}
 
+	_, err = conn.Write([]byte(response))
+	if err != nil {
+		log.Printf("Failed to write response: %v", err)
+	}
 }
 
 func main() {
