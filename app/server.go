@@ -43,7 +43,7 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 4096)
+	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %v", err)
@@ -66,8 +66,8 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	host := strings.Split(reqStringSlice[1], ": ")[1]
-	userAgent := strings.Split(reqStringSlice[2], ": ")[1]
+	host := strings.SplitN(reqStringSlice[1], ": ", 2)[1]
+	userAgent := strings.SplitN(reqStringSlice[2], ": ", 2)[1]
 
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 
