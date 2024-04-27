@@ -1,132 +1,100 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"log"
+	"io"
 	"net"
 	"os"
-	"strconv"
 	"strings"
+	// Uncomment this block to pass the first stage
+	// "net"
+	// "os"
 )
-
-type Request struct {
-	Method    string
-	Path      string
-	Protocol  string
-	Host      string
-	UserAgent string
-}
-
-const (
-	CRLF          = "\r\n"
-	OK            = "HTTP/1.1 200 OK"
-	NotFound      = "HTTP/1.1 404 Not Found"
-	InternalError = "HTTP/1.1 500 Internal Server Error"
-	ContentType   = "Content-Type: text/plain"
-	ContentLength = "Content-Length: 0"
-	UserAgent     = "User-Agent: 0"
-)
-
-func newRequest(method string, path string, protocol string, host string, userAgent string) *Request {
-	return &Request{
-		Method:    method,
-		Path:      path,
-		Protocol:  protocol,
-		Host:      host,
-		UserAgent: userAgent,
-	}
-
-}
-
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-	buf := make([]byte, 4096) // Incrementar tamaño si es necesario
-	n, err := conn.Read(buf)
-	if err != nil {
-		log.Printf("Error reading: %v", err)
-		return // Maneja el error sin terminar el programa
-	}
-
-	reqString := string(buf[:n])
-	reqStringSlice := strings.Split(reqString, CRLF)
-	if len(reqStringSlice) < 3 {
-		log.Println("Invalid request")
-		return
-	}
-
-	startLineSlice := strings.Split(reqStringSlice[0], " ")
-	if len(startLineSlice) != 3 {
-		log.Println("Invalid start line in request")
-		return
-	}
-	host := strings.TrimSpace(strings.Split(reqStringSlice[1], ": ")[1])
-	userAgent := strings.TrimSpace(strings.Split(reqStringSlice[2], ": ")[1])
-
-	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
-	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
-
-	response := ""
-	switch {
-	case request.Path == "/":
-		response = OK + CRLF + ContentLength + CRLF + CRLF
-	case strings.HasPrefix(request.Path, "/echo"):
-		handleEcho(conn, request)
-	case request.Path == "/user-agent":
-		handleUserAgent(conn, request)
-	default:
-		response = NotFound + CRLF + CRLF
-	}
-
-	_, err = conn.Write([]byte(response))
-	if err != nil {
-		log.Printf("Failed to write response: %v", err)
-	}
-}
 
 func main() {
-	listener, err := net.Listen("tcp", "0.0.0.0:4221")
-
+	// You can use print statements as follows for debugging, they'll be visible when running tests.
+	fmt.Println("Logs from your program will appear here!")
+	// Uncomment this block to pass the first stage
+	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
-
-	defer listener.Close()
-
 	for {
-		conn, err := listener.Accept()
+		con, err := l.Accept()
 		if err != nil {
-			log.Fatal("Failed to accept connection")
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
 		}
-		go handleConnection(conn)
+		// This allows concurrent connections
+		go handleConn(con)
 	}
 }
-
-func handleEcho(conn net.Conn, request *Request) {
-	body, found := strings.CutPrefix(request.Path, "/echo/")
-
-	if !found {
-		fmt.Println("Failed to parse request")
-		handleServerError(conn)
+func handleConn(conn net.Conn) {
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			exitWithError(err)
+		}
+	}(conn)
+	clientMsg := make([]byte, 1024)
+	_, err := conn.Read(clientMsg)
+	if err != nil && err != io.EOF {
+		exitWithError(err)
 	}
-	response := OK + CRLF + ContentType + CRLF + getContentLen(body) + CRLF + CRLF + body
-
-	_, err := conn.Write([]byte(response))
-
+	clientMsg = bytes.Trim(clientMsg, "\x00")
+	headers := map[string]string{}
+	lines := strings.Split(string(clientMsg), "\r\n")
+	if len(lines) > 0 {
+		// Parse headers
+		for _, line := range lines[1:] {
+			if line == "" {
+				break
+			}
+			header := strings.Split(line, ": ")
+			headers[strings.ToLower(header[0])] = header[1]
+		}
+		lineSplit := strings.Split(lines[0], " ")
+		if len(lineSplit) >= 2 {
+			switch lineSplit[1] {
+			case "/":
+				sendResponse(conn, []byte("HTTP/1.1 200 OK\r\n\r\n"))
+			case "/user-agent":
+				if userArgent, ok := headers["user-agent"]; ok {
+					sendResponse(conn, []byte(
+						fmt.Sprintf(
+							"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userArgent), userArgent,
+						)),
+					)
+				}
+				sendResponse(conn, []byte(
+					fmt.Sprintf(
+						"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", 0, "",
+					)),
+				)
+			default:
+				if strings.HasPrefix(lineSplit[1], "/echo/") {
+					respBody := strings.TrimPrefix(lineSplit[1], "/echo/")
+					sendResponse(conn, []byte(
+						fmt.Sprintf(
+							"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(respBody), respBody,
+						)),
+					)
+					break
+				}
+				sendResponse(conn, []byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			}
+		}
+	}
+}
+func exitWithError(err error) {
+	fmt.Println(err)
+	os.Exit(1)
+}
+func sendResponse(conn net.Conn, data []byte) {
+	_, err := conn.Write(data)
 	if err != nil {
-		handleServerError(conn)
+		exitWithError(err)
 	}
-}
-
-func handleServerError(conn net.Conn) {
-	conn.Write([]byte(InternalError + CRLF + CRLF))
-}
-
-func handleUserAgent(conn net.Conn, request *Request) {
-	response := OK + CRLF + ContentType + CRLF + getContentLen(request.UserAgent) + CRLF + CRLF + request.UserAgent
-	conn.Write([]byte(response))
-
-}
-func getContentLen(s string) string {
-	return strings.Replace(ContentLength, "0", strconv.Itoa(len(s)), 1)
 }
