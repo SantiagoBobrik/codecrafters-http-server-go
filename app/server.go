@@ -41,7 +41,7 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	n, err := conn.Read(buf)
 
 	if err != nil && err != io.EOF {
