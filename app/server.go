@@ -66,11 +66,10 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	host := strings.SplitN(reqStringSlice[1], ": ", 2)[1]
-	userAgent := strings.SplitN(reqStringSlice[2], ": ", 2)[1]
-
+	headers := parseHeaders(reqStringSlice[1:])
+	host := headers["host"]
+	userAgent := headers["user-agent"]
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
-
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
 	switch {
