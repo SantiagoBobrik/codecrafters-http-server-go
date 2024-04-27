@@ -41,8 +41,9 @@ func newRequest(method string, path string, protocol string, host string, userAg
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 4096) // Aumento del tamaño del buffer para acomodar solicitudes más grandes.
+	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
+
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %v", err)
 		sendResponse(conn, InternalError, "")
