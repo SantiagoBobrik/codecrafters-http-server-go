@@ -51,7 +51,7 @@ func handleConnection(conn net.Conn) {
 	reqStringSlice := strings.Split(string(buf), "\r\n")
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
 	host := strings.Split(reqStringSlice[1], ":")[1]
-	userAgent := strings.Split(reqStringSlice[2], ":")[1]
+	userAgent := strings.Trim(strings.Split(reqStringSlice[2], ":")[1], " ")
 	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 
 	fmt.Printf("Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
