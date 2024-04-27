@@ -27,13 +27,13 @@ const (
 	UserAgent     = "User-Agent: 0"
 )
 
-func newRequest(s []string) *Request {
+func newRequest(method string, path string, protocol string, host string, userAgent string) *Request {
 	return &Request{
-		Method:    s[0],
-		Path:      s[1],
-		Protocol:  s[2],
-		Host:      s[3],
-		UserAgent: s[4],
+		Method:    method,
+		Path:      path,
+		Protocol:  protocol,
+		Host:      host,
+		UserAgent: userAgent,
 	}
 
 }
@@ -50,7 +50,9 @@ func handleConnection(conn net.Conn) {
 
 	reqStringSlice := strings.Split(string(buf), "\r\n")
 	startLineSlice := strings.Split(reqStringSlice[0], " ")
-	request := newRequest(startLineSlice)
+	host := strings.Split(reqStringSlice[1], ":")[1]
+	userAgent := strings.Split(reqStringSlice[2], ":")[1]
+	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
 
 	fmt.Printf("Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
@@ -68,7 +70,7 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
-	listener, err := net.Listen("tcp", "lohalhost:4221")
+	listener, err := net.Listen("tcp", "0.0.0.0:4221")
 
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -105,7 +107,8 @@ func handleServerError(conn net.Conn) {
 }
 
 func handleUserAgent(conn net.Conn, request *Request) {
-	conn.Write([]byte(request.UserAgent))
+	response := OK + CRLF + ContentType + CRLF + getContentLen(request.UserAgent) + CRLF + CRLF + request.UserAgent
+	conn.Write([]byte(response))
 
 }
 func getContentLen(s string) string {
