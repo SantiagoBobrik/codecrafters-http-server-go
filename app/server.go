@@ -18,30 +18,30 @@ type Request struct {
 	Protocol  string
 	Host      string
 	UserAgent string
+	Body      string
 }
 
 const (
-	CRLF             = "\r\n"
-	OK               = "HTTP/1.1 200 OK"
-	NotFound         = "HTTP/1.1 404 Not Found"
-	BadRequest       = "HTTP/1.1 400 Bad Request"
-	InternalError    = "HTTP/1.1 500 Internal Server Error"
-	ContentTypeText  = "Content-Type: text/plain"
-	ContentTypeOctet = "Content-Type: application/octet-stream"
-	ContentLength    = "Content-Length:"
+	CRLF          = "\r\n"
+	OK            = "HTTP/1.1 200 OK"
+	NotFound      = "HTTP/1.1 404 Not Found"
+	BadRequest    = "HTTP/1.1 400 Bad Request"
+	InternalError = "HTTP/1.1 500 Internal Server Error"
+	Created       = "HTTP/1.1 201 Created"
 )
 
 var (
 	directory string
 )
 
-func newRequest(method string, path string, protocol string, host string, userAgent string) *Request {
+func newRequest(method string, path string, protocol string, host string, userAgent string, body string) *Request {
 	return &Request{
 		Method:    method,
 		Path:      path,
 		Protocol:  protocol,
 		Host:      host,
 		UserAgent: userAgent,
+		Body:      body,
 	}
 
 }
@@ -74,7 +74,9 @@ func handleConnection(conn net.Conn) {
 	headers := parseHeaders(reqStringSlice[1:])
 	host := headers["host"]
 	userAgent := headers["user-agent"]
-	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent)
+	body := reqStringSlice[len(reqStringSlice)-1]
+
+	request := newRequest(startLineSlice[0], startLineSlice[1], startLineSlice[2], host, userAgent, body)
 
 	fmt.Printf("New Request: %s %s %s\n", request.Method, request.Path, request.Protocol)
 
@@ -86,6 +88,10 @@ func handleConnection(conn net.Conn) {
 	case request.Path == "/user-agent":
 		handleUserAgent(conn, request)
 	case strings.HasPrefix(request.Path, "/files"):
+		if request.Method == "POST" {
+			handleUploadFile(conn, request)
+			break
+		}
 		handleDownLoadFile(conn, request)
 
 	default:
@@ -156,6 +162,24 @@ func handleDownLoadFile(conn net.Conn, request *Request) {
 	downloadFile(conn, OK, file)
 }
 
+func handleUploadFile(conn net.Conn, request *Request) {
+	fileName, found := strings.CutPrefix(request.Path, "/files/")
+	if !found {
+		fmt.Println("Failed to parse request")
+		handleServerError(conn)
+	}
+
+	path := path2.Join(directory, fileName)
+
+	err := os.WriteFile(path, []byte(request.Body), 0644)
+
+	if err != nil {
+		handleServerError(conn)
+	}
+
+	saveFile(conn)
+}
+
 func handleUserAgent(conn net.Conn, request *Request) {
 	sendResponse(conn, OK, request.UserAgent)
 }
@@ -178,6 +202,14 @@ func downloadFile(conn net.Conn, status string, body []byte) {
 	response := fmt.Sprintf("%s\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", status, len(body), body)
 	_, err := conn.Write([]byte(response))
 
+	if err != nil {
+		log.Printf("Error downloading file: %v", err)
+		handleServerError(conn)
+	}
+}
+
+func saveFile(conn net.Conn) {
+	_, err := conn.Write([]byte(Created + CRLF + CRLF))
 	if err != nil {
 		log.Printf("Error downloading file: %v", err)
 		handleServerError(conn)
